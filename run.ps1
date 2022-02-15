@@ -26,8 +26,6 @@ foreach ($t in $tempRealtimeStats) {
 }
 
 $statThread = Start-ThreadJob -ScriptBlock {
-	#$count = 0
-
 	:forever while ($true) {
 		#$stats = (get-vmhost dt $clusterHosts | get-stat -IntervalSecs 20 -MaxSamples 1 -Stat $realtimeStats) 
 
@@ -54,9 +52,6 @@ $statThread = Start-ThreadJob -ScriptBlock {
 				$s.EntityId, 
 				$s.Value, 
 				$timestamp)
-
-
-
 		}
 
 		$tempQueue = $using:syncQueue
@@ -64,11 +59,6 @@ $statThread = Start-ThreadJob -ScriptBlock {
 
 		# TODO: This should be how long did the above take a sleep the difference between the next scrape
 		Start-Sleep -Seconds 10
-	#	if ($count -eq 5) {
-	#		break forever
-	#	}
-
-	#	$count++
 	}
 }
 
@@ -95,12 +85,16 @@ $webThread = Start-ThreadJob -ScriptBlock {
 
 				if ($tempQueue.Count -gt 0) {
 					$metrics = $tempQueue.Dequeue()
-        
-					#resposed to the request
+					
+					# Add newlines per string
+					$OFS="`n"
 					$buffer = [System.Text.Encoding]::UTF8.GetBytes([string]$metrics) # convert htmtl to bytes
 					$context.Response.ContentLength64 = $buffer.Length
 					$context.Response.OutputStream.Write($buffer, 0, $buffer.Length) #stream to broswer
 					$context.Response.OutputStream.Close() # close the response
+				}
+				else {
+					Write-Error -Message "No metrics in queue."
 				}
     
 			}	
