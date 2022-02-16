@@ -43,11 +43,14 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 	:forever while ($true) {
 
 		$startTime = Get-Date
+		Write-Host "Start Time: $($startTime)"
 
 		$tempRealtimeStatTypes = $using:realtimeStats
 		$tempServer = $using:server
 		$tempClusterHosts = $using:clusterHosts
 		$stats = (Get-VMHost -Server $tempServer -Name $tempClusterHosts | Get-Stat -Server $tempServer -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
+
+		Write-Host "Statistic count: $($stats.Count)"
 
 		$outputArray = @()
 		$entityType = @{}
@@ -72,13 +75,17 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
 
+		Write-Host "Queue Length: $($tempQueue.Count)"
+
 		# empty array
 		$outputArray = @()
 
 		$endTime = Get-Date
+		Write-Host "End Time: $($endTime)"
+
 		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
 		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		Write-Information -MessageData "Sleep: $($sleepSeconds)" -InformationAction Continue
+		Write-Host "Sleep: $($sleepSeconds)" 
 		Start-Sleep -Seconds $sleepSeconds
 	}
 }
@@ -90,10 +97,13 @@ Write-Information -MessageData "Starting HTTPd thread" -InformationAction Contin
 $webThread = Start-ThreadJob -Name web -ScriptBlock {
 	$http = [System.Net.HttpListener]::new()
 	$http.Prefixes.Add("http://*:8080/")
+
+	Write-Host "Starting HTTPd Server"
+
 	$http.Start()
 
 	if ($http.IsListening) {
-		Write-Host " HTTP Server Ready!  " -f 'black' -b 'gre'
+		Write-Host "HTTPd Server Ready"
 	}
 
 	try {
@@ -102,9 +112,10 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 			$context = $contextTask.GetAwaiter().GetResult()
 			if ($context.Request.HttpMethod -eq 'GET' -and $context.Request.RawUrl -eq '/metrics') {
 				# We can log the request to the terminal
-				Write-Host "$($context.Request.UserHostAddress)  =>  $($context.Request.Url)" -f 'mag'
+				Write-Host "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
 
 				$tempQueue = $using:syncQueue
+				Write-Host "Queue Length: $($tempQueue.Count)"
 
 				if ($tempQueue.Count -gt 0) {
 					$metrics = $tempQueue.Dequeue()
@@ -121,9 +132,9 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 					$context.Response.ContentLength64 = $buffer.Length
 					$context.Response.OutputStream.Write($buffer, 0, $buffer.Length) #stream to broswer
 					$context.Response.OutputStream.Close() # close the response
-					Write-Error -Message "No metrics in queue."
-				}
+					Write-Host "No metrics in queue."
 
+				}
 			}
 		}
 
