@@ -39,7 +39,7 @@ $intsectRealtimeStatTypes = ""
 
 Write-Information -MessageData "Starting statistics thread" -InformationAction Continue
 
-$statThread = Start-ThreadJob -Name statistics -ScriptBlock {
+$statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 	:forever while ($true) {
 
 		$startTime = Get-Date
@@ -54,6 +54,7 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 
 		$outputArray = @()
 		$entityType = @{}
+
 		foreach ($s in $stats) {
 			if (!$entityType.ContainsKey($s.EntityId)) {
 				$entityType[$s.EntityId] = (Get-View -Server $tempServer -Id $s.EntityId).GetType().Name
@@ -72,13 +73,15 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 				$timestamp)
 		}
 
-		$tempQueue = $using:syncQueue
-		$tempQueue.Enqueue($outputArray)
+        Write-Host "Before Enqueue"
 
-		Write-Host "Stat Queue Length: $($tempQueue.Count)"
+		#$tempQueue = $using:syncQueue
+		$using:syncQueue.Enqueue($outputArray)
+
+		#Write-Host "Stat Queue Length: $($tempQueue.Count)"
 
 		# empty array
-		# $outputArray = @()
+		$outputArray = @()
 
 		$endTime = Get-Date
 		Write-Host "End Time: $($endTime)"
@@ -88,7 +91,7 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 		Write-Host "Calculated Sleep: $($sleepSeconds)"
 		$sleepSeconds = 20
 
-		Write-Information -MessageData "Sleep: $($sleepSeconds)" -InformationAction Continue
+		Write-Host "Sleep: $($sleepSeconds)"
 		Start-Sleep -Seconds $sleepSeconds
 	}
 }
@@ -116,16 +119,16 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 				# We can log the request to the terminal
 				Write-Host "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
 
-			    $tempQueue = $using:syncQueue
-                Write-Host "HTTPd Queue Length: $($tempQueue.Count)"
+			    #$tempQueue = $using:syncQueue
+                #Write-Host "HTTPd Queue Length: $($tempQueue.Count)"
 
 
-				if ($tempQueue.Count -gt 0) {
-					$metrics = $tempQueue.Dequeue()
-
+				if ($using:syncQueue.Count -gt 0) {
+					$metrics = $using:syncQueue.Dequeue()
 					# Add newlines per string
 					$OFS = "`n"
 					$buffer = [System.Text.Encoding]::UTF8.GetBytes([string]$metrics) # convert htmtl to bytes
+                    $metrics = @()
 					$context.Response.ContentLength64 = $buffer.Length
 					$context.Response.OutputStream.Write($buffer, 0, $buffer.Length) #stream to broswer
 					$context.Response.OutputStream.Close() # close the response
