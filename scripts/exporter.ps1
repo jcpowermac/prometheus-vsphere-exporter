@@ -11,18 +11,31 @@ $syncQueue = [System.Collections.Queue]::Synchronized($queue)
 
 Write-Information -MessageData "Getting available statistics types" -InformationAction Continue
 $clusterHosts = Get-VMHost -Location (Get-Cluster $Env:VCENTER_CLUSTER)
-$onehost = Get-Random -InputObject $clusterHosts
 
-$tempRealtimeStats = $onehost | Get-StatType -Realtime
+# Intersection of stats, because of course we need this...
+# If the cluster hosts are different hardware or ESXi versions
+# they could have different StatTypes.
 
-$realtimeStats = @()
-foreach ($t in $tempRealtimeStats) {
-	if (!$t.StartsWith("sys")) {
-		$realtimeStats += $t
+$intsectRealtimeStatTypes = @()
+foreach ($h in $clusterHosts) {
+	if($intsectRealtimeStatTypes.Count -eq 0) {
+		$intsectRealtimeStatTypes = ($h | Get-StatType -Realtime)
+	}
+	else {
+		$tempStatTypes = ($h | Get-StatType -Realtime)
+		$intsectRealtimeStatTypes = ($intsectRealtimeStatTypes | Where-Object {$tempStatTypes -contains $_})
 	}
 }
 
-$tempRealtimeStats = ""
+$realtimeStats = @()
+
+foreach ($r in $intsectRealtimeStatTypes) {
+	if (!$r.StartsWith("sys")) {
+		$realtimeStats += $r
+	}
+}
+
+$intsectRealtimeStatTypes = ""
 
 Write-Information -MessageData "Starting statistics thread" -InformationAction Continue
 
