@@ -7,6 +7,9 @@ data:
   VSPHERE_IGNORE_SSL: "True"
   VCENTER_URI: "vcs8e-vc.ocp2.dev.cluster.com"
   VCENTER_SECRET_PATH: "/var/run/secret/vcenter/creds.xml"
+  VCENTER_CLUSTER: "vcs-ci-workload"
+  SCRAPE_DELAY: 30
+  THREAD_STATUS_DELAY: 300
 kind: ConfigMap
 metadata:
   labels:

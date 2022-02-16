@@ -1,6 +1,4 @@
 #!/bin/pwsh
-
-
 Write-Information -MessageData "Starting prometheus vsphere exporter" -InformationAction Continue
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false > $null
@@ -8,15 +6,11 @@ Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false > $nu
 Write-Information -MessageData "Connecting to $($Env:VCENTER_URI)" -InformationAction Continue
 $server = Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH)
 
-$cluster = "vcs-ci-workload"
-
-# Setup...
-
 $queue = New-Object System.Collections.Queue
 $syncQueue = [System.Collections.Queue]::Synchronized($queue)
 
 Write-Information -MessageData "Getting available statistics types" -InformationAction Continue
-$clusterHosts = Get-VMHost -Location (Get-Cluster $cluster)
+$clusterHosts = Get-VMHost -Location (Get-Cluster $Env:VCENTER_CLUSTER)
 $onehost = Get-Random -InputObject $clusterHosts
 
 $tempRealtimeStats = $onehost | Get-StatType -Realtime
@@ -28,16 +22,20 @@ foreach ($t in $tempRealtimeStats) {
 	}
 }
 
+$tempRealtimeStats = ""
+
 Write-Information -MessageData "Starting statistics thread" -InformationAction Continue
 
-$statThread = Start-ThreadJob -ScriptBlock {
+$statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 	:forever while ($true) {
-		#$stats = (get-vmhost dt $clusterHosts | get-stat -IntervalSecs 20 -MaxSamples 1 -Stat $realtimeStats)
 
-		$tempRealtimeStats = $using:realtimeStats
+		$startTime = Get-Date
+
+		$tempRealtimeStatTypes = $using:realtimeStats
 		$tempServer = $using:server
+		$tempClusterHosts = $using:clusterHosts
 
-		$stats = (Get-VMHost -Server $tempServer -Name host-ci000.ibmvcenter.vmc-ci.devcluster.openshift.com | Get-Stat -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStats -Server $tempServer)
+		$stats = (Get-VMHost $tempClusterHosts | Get-Stat -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
 
 		$outputArray = @()
 		$entityType = @{}
@@ -62,8 +60,14 @@ $statThread = Start-ThreadJob -ScriptBlock {
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
 
-		# TODO: This should be how long did the above take a sleep the difference between the next scrape
-		Start-Sleep -Seconds 10
+		# empty array
+		$outputArray = @()
+
+		$endTime = Get-Date
+		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
+		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
+		Write-Information -MessageData "Sleep: $($sleepSeconds)" -InformationAction Continue
+		Start-Sleep -Seconds $sleepSeconds
 	}
 }
 
@@ -71,7 +75,7 @@ Write-Information -MessageData "Starting HTTPd thread" -InformationAction Contin
 
 # Below section is from the following gist:
 # https://gist.github.com/rminderhoud/c603a0a30587ae5c957b211ba386bf37
-$webThread = Start-ThreadJob -ScriptBlock {
+$webThread = Start-ThreadJob -Name web -ScriptBlock {
 	$http = [System.Net.HttpListener]::new()
 	$http.Prefixes.Add("http://*:8080/")
 	$http.Start()
@@ -94,7 +98,7 @@ $webThread = Start-ThreadJob -ScriptBlock {
 					$metrics = $tempQueue.Dequeue()
 
 					# Add newlines per string
-					$OFS="`n"
+					$OFS = "`n"
 					$buffer = [System.Text.Encoding]::UTF8.GetBytes([string]$metrics) # convert htmtl to bytes
 					$context.Response.ContentLength64 = $buffer.Length
 					$context.Response.OutputStream.Write($buffer, 0, $buffer.Length) #stream to broswer
@@ -117,4 +121,9 @@ $webThread = Start-ThreadJob -ScriptBlock {
 	}
 }
 
-$webThread | Wait-Job
+while ($true) {
+	Start-Sleep -Seconds $Env:THREAD_STATUS_DELAY
+	Get-Job
+	$statThread | Receive-Job
+	$webThread | Receive-Job
+}
