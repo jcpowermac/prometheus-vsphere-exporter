@@ -1,7 +1,11 @@
 #!/bin/pwsh
 
 
+Write-Information -MessageData "Starting prometheus vsphere exporter" -InformationAction Continue
+
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false > $null
+
+Write-Information -MessageData "Connecting to $($Env:VCENTER_URI)" -InformationAction Continue
 $server = Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH)
 
 $cluster = "vcs-ci-workload"
@@ -11,6 +15,7 @@ $cluster = "vcs-ci-workload"
 $queue = New-Object System.Collections.Queue
 $syncQueue = [System.Collections.Queue]::Synchronized($queue)
 
+Write-Information -MessageData "Getting available statistics types" -InformationAction Continue
 $clusterHosts = Get-VMHost -Location (Get-Cluster $cluster)
 $onehost = Get-Random -InputObject $clusterHosts
 
@@ -22,6 +27,8 @@ foreach ($t in $tempRealtimeStats) {
 		$realtimeStats += $t
 	}
 }
+
+Write-Information -MessageData "Starting statistics thread" -InformationAction Continue
 
 $statThread = Start-ThreadJob -ScriptBlock {
 	:forever while ($true) {
@@ -59,6 +66,8 @@ $statThread = Start-ThreadJob -ScriptBlock {
 		Start-Sleep -Seconds 10
 	}
 }
+
+Write-Information -MessageData "Starting HTTPd thread" -InformationAction Continue
 
 # Below section is from the following gist:
 # https://gist.github.com/rminderhoud/c603a0a30587ae5c957b211ba386bf37

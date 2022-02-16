@@ -31,6 +31,10 @@ spec:
         image: quay.io/jcallen/prometheus-vsphere-exporter:latest
         imagePullPolicy: Always
         name: prometheus-vsphere-exporter
+        args:
+        - /bin/pwsh
+        - -File
+        - /projects/exporter.ps1
         ports:
         - containerPort: 8080
           name: http
