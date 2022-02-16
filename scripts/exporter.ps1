@@ -18,12 +18,12 @@ $clusterHosts = Get-VMHost -Location (Get-Cluster $Env:VCENTER_CLUSTER)
 
 $intsectRealtimeStatTypes = @()
 foreach ($h in $clusterHosts) {
-	if($intsectRealtimeStatTypes.Count -eq 0) {
+	if ($intsectRealtimeStatTypes.Count -eq 0) {
 		$intsectRealtimeStatTypes = ($h | Get-StatType -Realtime)
 	}
 	else {
 		$tempStatTypes = ($h | Get-StatType -Realtime)
-		$intsectRealtimeStatTypes = ($intsectRealtimeStatTypes | Where-Object {$tempStatTypes -contains $_})
+		$intsectRealtimeStatTypes = ($intsectRealtimeStatTypes | Where-Object { $tempStatTypes -contains $_ })
 	}
 }
 
@@ -75,17 +75,20 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
 
-		Write-Host "Queue Length: $($tempQueue.Count)"
+		Write-Host "Stat Queue Length: $($tempQueue.Count)"
 
 		# empty array
-		$outputArray = @()
+		# $outputArray = @()
 
 		$endTime = Get-Date
 		Write-Host "End Time: $($endTime)"
 
 		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
 		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		Write-Host "Sleep: $($sleepSeconds)" 
+		Write-Host "Calculated Sleep: $($sleepSeconds)"
+		$sleepSeconds = 20
+
+		Write-Information -MessageData "Sleep: $($sleepSeconds)" -InformationAction Continue
 		Start-Sleep -Seconds $sleepSeconds
 	}
 }
@@ -99,7 +102,6 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 	$http.Prefixes.Add("http://*:8080/")
 
 	Write-Host "Starting HTTPd Server"
-
 	$http.Start()
 
 	if ($http.IsListening) {
@@ -114,8 +116,9 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 				# We can log the request to the terminal
 				Write-Host "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
 
-				$tempQueue = $using:syncQueue
-				Write-Host "Queue Length: $($tempQueue.Count)"
+			    $tempQueue = $using:syncQueue
+                Write-Host "HTTPd Queue Length: $($tempQueue.Count)"
+
 
 				if ($tempQueue.Count -gt 0) {
 					$metrics = $tempQueue.Dequeue()
@@ -133,7 +136,6 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 					$context.Response.OutputStream.Write($buffer, 0, $buffer.Length) #stream to broswer
 					$context.Response.OutputStream.Close() # close the response
 					Write-Host "No metrics in queue."
-
 				}
 			}
 		}
@@ -147,6 +149,10 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 while ($true) {
 	Start-Sleep -Seconds $Env:THREAD_STATUS_DELAY
 	Get-Job
+
+	Write-Host "Stat Thread Results"
 	$statThread | Receive-Job
+
+	Write-Host "HTTPd Thread Results"
 	$webThread | Receive-Job
 }
