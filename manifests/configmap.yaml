@@ -1,0 +1,16 @@
+apiVersion: v1
+data:
+  VSPHERE_COLLECT_DATASTORES: "True"
+  VSPHERE_COLLECT_HOSTS: "True"
+  VSPHERE_COLLECT_VMGUESTS: "True"
+  VSPHERE_COLLECT_VMS: "True"
+  VSPHERE_IGNORE_SSL: "True"
+  VCENTER_URI: "vcs8e-vc.ocp2.dev.cluster.com"
+  VCENTER_SECRET_PATH: "/var/run/secret/vcenter/creds.xml"
+kind: ConfigMap
+metadata:
+  labels:
+    app: prometheus-vsphere-exporter
+    k8s-app: prometheus-vsphere-exporter
+  name: prometheus-vsphere-exporter-config
+  namespace: openshift-vsphere-infra

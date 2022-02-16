@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-vsphere-exporter
+  namespace: openshift-vsphere-infra
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: prometheus-vsphere-exporter
+      k8s-app: prometheus-vsphere-exporter
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: prometheus-vsphere-exporter
+        k8s-app: prometheus-vsphere-exporter
+        release: prometheus-vsphere-exporter
+    spec:
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: prometheus-vsphere-exporter-config
+        image: quay.io/jcallen/prometheus-vsphere-exporter:latest
+        imagePullPolicy: Always
+        name: prometheus-vsphere-exporter
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - name: vcenter-credential
+          mountPath: /var/run/secret/vcenter
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: vcenter-credential
+        secret:
+          secretName: vcenter-credential

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: prometheus-vsphere-exporter
+    k8s-app: prometheus-vsphere-exporter
+  name: metrics
+  namespace: openshift-vsphere-infra
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: prometheus-vsphere-exporter
+    k8s-app: prometheus-vsphere-exporter
+  sessionAffinity: None
+  type: ClusterIP
