@@ -34,8 +34,7 @@ $statThread = Start-ThreadJob -Name statistics -ScriptBlock {
 		$tempRealtimeStatTypes = $using:realtimeStats
 		$tempServer = $using:server
 		$tempClusterHosts = $using:clusterHosts
-
-		$stats = (Get-VMHost $tempClusterHosts | Get-Stat -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
+		$stats = (Get-VMHost -Server $tempServer -Name $tempClusterHosts | Get-Stat -Server $tempServer -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
 
 		$outputArray = @()
 		$entityType = @{}
