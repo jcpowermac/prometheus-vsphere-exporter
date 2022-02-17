@@ -55,7 +55,9 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 		$outputArray = @()
 		$entityType = @{}
 
+		Write-Host "Statistic: Before foreach"
 		foreach ($s in $stats) {
+            try {
 			if (!$entityType.ContainsKey($s.EntityId)) {
 				$entityType[$s.EntityId] = (Get-View -Server $tempServer -Id $s.EntityId).GetType().Name
 			}
@@ -71,13 +73,18 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 				$s.EntityId,
 				$s.Value,
 				$timestamp)
+            }
+            catch {
+                Get-Error
+            }
 		}
+		Write-Host "Statistic: After foreach"
 
-        Write-Host "Before Enqueue"
+        Write-Host "Statistic: Before Enqueue"
 
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
-        Write-Host "After Enqueue"
+        Write-Host "Statistic: After Enqueue"
 
 		#Write-Host "Stat Queue Length: $($tempQueue.Count)"
 
@@ -85,14 +92,14 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 		$outputArray = @()
 
 		$endTime = Get-Date
-		Write-Host "End Time: $($endTime)"
+		Write-Host "Statistic: End Time: $($endTime)"
 
 		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
 		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
 		Write-Host "Calculated Sleep: $($sleepSeconds)"
 		$sleepSeconds = 20
 
-		Write-Host "Sleep: $($sleepSeconds)"
+		Write-Host "Statistic: Sleep: $($sleepSeconds)"
 		Start-Sleep -Seconds $sleepSeconds
 	}
 }
@@ -105,16 +112,18 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 	$http = [System.Net.HttpListener]::new()
 	$http.Prefixes.Add("http://*:8080/")
 
-	Write-Host "Starting HTTPd Server"
+	Write-Host "HTTPd: Starting"
 	$http.Start()
 
 	if ($http.IsListening) {
-		Write-Host "HTTPd Server Ready"
+		Write-Host "HTTPd: Ready"
 	}
 
 	try {
 		while ($http.IsListening) {
+            Write-Host "HTTPd: Before GetContextAsync()"
 			$contextTask = $http.GetContextAsync()
+            Write-Host "HTTPd: Before GetAwaiter()"
 			$context = $contextTask.GetAwaiter().GetResult()
 			if ($context.Request.HttpMethod -eq 'GET' -and $context.Request.RawUrl -eq '/metrics') {
 				# We can log the request to the terminal
@@ -125,9 +134,9 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 
 
 				if ($tempQueue.Count -gt 0) {
-                    Write-Host "Before dequeue"
+                    Write-Host "HTTPd: Before dequeue"
 					$metrics = $tempQueue.Dequeue()
-                    Write-Host "after dequeue"
+                    Write-Host "HTTPd: after dequeue"
 					# Add newlines per string
 					$OFS = "`n"
 					$buffer = [System.Text.Encoding]::UTF8.GetBytes([string]$metrics) # convert htmtl to bytes
@@ -141,11 +150,10 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 					$context.Response.ContentLength64 = $buffer.Length
 					$context.Response.OutputStream.Write($buffer, 0, $buffer.Length) #stream to broswer
 					$context.Response.OutputStream.Close() # close the response
-					Write-Host "No metrics in queue."
+					Write-Host "HTTPd: No metrics in queue."
 				}
 			}
 		}
-
 	}
 	finally {
 		$http.Stop()

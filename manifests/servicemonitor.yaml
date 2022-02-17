@@ -7,7 +7,7 @@ metadata:
   namespace: openshift-monitoring
 spec:
   endpoints:
-  - interval: 30s
+  - interval: 60s
     port: metrics
     scheme: http
   jobLabel: app
