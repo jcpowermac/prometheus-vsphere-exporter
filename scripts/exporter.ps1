@@ -43,19 +43,19 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 	:forever while ($true) {
 
 		$startTime = Get-Date
-		Write-Host "Start Time: $($startTime)"
+		Write-Output "Start Time: $($startTime)"
 
 		$tempRealtimeStatTypes = $using:realtimeStats
 		$tempServer = $using:server
 		$tempClusterHosts = $using:clusterHosts
 		$stats = (Get-VMHost -Server $tempServer -Name $tempClusterHosts | Get-Stat -Server $tempServer -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
 
-		Write-Host "Statistic count: $($stats.Count)"
+		Write-Output "Statistic count: $($stats.Count)"
 
 		$outputArray = @()
 		$entityType = @{}
 
-		Write-Host "Statistic: Before foreach"
+		Write-Output "Statistic: Before foreach"
 		foreach ($s in $stats) {
             try {
 			if (!$entityType.ContainsKey($s.EntityId)) {
@@ -78,13 +78,13 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
                 Get-Error
             }
 		}
-		Write-Host "Statistic: After foreach"
+		Write-Output "Statistic: After foreach"
 
-        Write-Host "Statistic: Before Enqueue"
+        Write-Output "Statistic: Before Enqueue"
 
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
-        Write-Host "Statistic: After Enqueue"
+        Write-Output "Statistic: After Enqueue"
 
 		#Write-Host "Stat Queue Length: $($tempQueue.Count)"
 
@@ -92,14 +92,14 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 		$outputArray = @()
 
 		$endTime = Get-Date
-		Write-Host "Statistic: End Time: $($endTime)"
+		Write-Output "Statistic: End Time: $($endTime)"
 
 		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
 		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		Write-Host "Calculated Sleep: $($sleepSeconds)"
+		Write-Output "Calculated Sleep: $($sleepSeconds)"
 		$sleepSeconds = 20
 
-		Write-Host "Statistic: Sleep: $($sleepSeconds)"
+		Write-Output "Statistic: Sleep: $($sleepSeconds)"
 		Start-Sleep -Seconds $sleepSeconds
 	}
 }
