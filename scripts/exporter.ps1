@@ -1,6 +1,7 @@
 #!/bin/pwsh
 
 $global:DebugPreference = $Env:DEBUG_PREFERENCE
+$Env:TERM = "xterm"
 
 Write-Information -MessageData "Starting prometheus vsphere exporter" -InformationAction Continue
 
@@ -43,6 +44,7 @@ $intsectRealtimeStatTypes = ""
 Write-Information -MessageData "Starting statistics thread" -InformationAction Continue
 
 $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
+    $DebugPreference = $Env:DEBUG_PREFERENCE
 	:forever while ($true) {
 
 		$startTime = Get-Date
@@ -103,6 +105,7 @@ Write-Information -MessageData "Starting HTTPd thread" -InformationAction Contin
 # https://gist.github.com/rminderhoud/c603a0a30587ae5c957b211ba386bf37
 
 $webThread = Start-ThreadJob -Name web -ScriptBlock {
+    $DebugPreference = $Env:DEBUG_PREFERENCE
 	$http = [System.Net.HttpListener]::new()
 	$http.Prefixes.Add("http://*:8080/")
 
@@ -122,7 +125,7 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
             Write-Debug "HTTPd: Waiter Start: $($start)"
 			$context = $contextTask.GetAwaiter().GetResult()
 			if ($context.Request.HttpMethod -eq 'GET' -and $context.Request.RawUrl -eq '/metrics') {
-				Write-Information -InformationAction Continue -MessageData "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
+				Write-Debug "$($context.Request.UserHostAddress) => $($context.Request.Url)"
 			    $tempQueue = $using:syncQueue
 
 				if ($tempQueue.Count -gt 0) {
