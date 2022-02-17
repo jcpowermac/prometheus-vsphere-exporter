@@ -10,6 +10,7 @@ data:
   VCENTER_CLUSTER: "vcs-ci-workload"
   SCRAPE_DELAY: 30
   THREAD_STATUS_DELAY: 300
+  DEBUG_PREFERENCE: "Continue"
 kind: ConfigMap
 metadata:
   labels:

@@ -1,4 +1,7 @@
 #!/bin/pwsh
+
+$global:DebugPreference = $Env:DEBUG_PREFERENCE
+
 Write-Information -MessageData "Starting prometheus vsphere exporter" -InformationAction Continue
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false > $null
@@ -43,21 +46,19 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 	:forever while ($true) {
 
 		$startTime = Get-Date
-		Write-Output "Start Time: $($startTime)"
+		Write-Debug "Start Time: $($startTime)"
 
 		$tempRealtimeStatTypes = $using:realtimeStats
 		$tempServer = $using:server
 		$tempClusterHosts = $using:clusterHosts
 		$stats = (Get-VMHost -Server $tempServer -Name $tempClusterHosts | Get-Stat -Server $tempServer -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
 
-		Write-Output "Statistic count: $($stats.Count)"
+		Write-Debug "Statistic count: $($stats.Count)"
 
 		$outputArray = @()
 		$entityType = @{}
 
-		Write-Output "Statistic: Before foreach"
 		foreach ($s in $stats) {
-            try {
 			if (!$entityType.ContainsKey($s.EntityId)) {
 				$entityType[$s.EntityId] = (Get-View -Server $tempServer -Id $s.EntityId).GetType().Name
 			}
@@ -74,33 +75,25 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 				$s.Value,
 				$timestamp)
             }
-            catch {
-                Get-Error
-            }
 		}
-		Write-Output "Statistic: After foreach"
-
-        Write-Output "Statistic: Before Enqueue"
-
+        Write-Debug "Statistic: Before Enqueue"
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
-        Write-Output "Statistic: After Enqueue"
-
-		#Write-Host "Stat Queue Length: $($tempQueue.Count)"
+        Write-Debug "Statistic: After Enqueue"
 
 		# empty array
 		$outputArray = @()
 
 		$endTime = Get-Date
-		Write-Output "Statistic: End Time: $($endTime)"
+		Write-Debug "Statistic: End Time: $($endTime)"
 
 		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
 		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		Write-Output "Calculated Sleep: $($sleepSeconds)"
-		$sleepSeconds = 20
+		Write-Debug "Statistic: Calculated Sleep: $($sleepSeconds)"
 
-		Write-Output "Statistic: Sleep: $($sleepSeconds)"
-		Start-Sleep -Seconds $sleepSeconds
+        if ($sleepSeconds -gt 0) {
+		    Start-Sleep -Seconds $sleepSeconds
+        }
 	}
 }
 
@@ -108,35 +101,32 @@ Write-Information -MessageData "Starting HTTPd thread" -InformationAction Contin
 
 # Below section is from the following gist:
 # https://gist.github.com/rminderhoud/c603a0a30587ae5c957b211ba386bf37
+
 $webThread = Start-ThreadJob -Name web -ScriptBlock {
 	$http = [System.Net.HttpListener]::new()
 	$http.Prefixes.Add("http://*:8080/")
 
-	Write-Host "HTTPd: Starting"
+    Write-Information -MessageData "HTTPd: Starting" -InformationAction Continue
 	$http.Start()
 
 	if ($http.IsListening) {
-		Write-Host "HTTPd: Ready"
+        Write-Information -MessageData "HTTPd: Ready" -InformationAction Continue
 	}
 
 	try {
 		while ($http.IsListening) {
-            Write-Host "HTTPd: Before GetContextAsync()"
+            Write-Debug "HTTPd: Before GetContextAsync()"
 			$contextTask = $http.GetContextAsync()
-            Write-Host "HTTPd: Before GetAwaiter()"
+            Write-Debug "HTTPd: Before GetAwaiter()"
+            $startTime = Get-Date
+            Write-Debug "HTTPd: Waiter Start: $($start)"
 			$context = $contextTask.GetAwaiter().GetResult()
 			if ($context.Request.HttpMethod -eq 'GET' -and $context.Request.RawUrl -eq '/metrics') {
-				# We can log the request to the terminal
-				Write-Host "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
-
+				Write-Information -InformationAction Continue -MessageData "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
 			    $tempQueue = $using:syncQueue
-                #Write-Host "HTTPd Queue Length: $($tempQueue.Count)"
-
 
 				if ($tempQueue.Count -gt 0) {
-                    Write-Host "HTTPd: Before dequeue"
 					$metrics = $tempQueue.Dequeue()
-                    Write-Host "HTTPd: after dequeue"
 					# Add newlines per string
 					$OFS = "`n"
 					$buffer = [System.Text.Encoding]::UTF8.GetBytes([string]$metrics) # convert htmtl to bytes
@@ -152,6 +142,8 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 					$context.Response.OutputStream.Close() # close the response
 					Write-Host "HTTPd: No metrics in queue."
 				}
+                $endTime = Get-Date
+                Write-Debug "HTTPd: Waiter End: $($start)"
 			}
 		}
 	}
@@ -164,9 +156,9 @@ while ($true) {
 	Start-Sleep -Seconds $Env:THREAD_STATUS_DELAY
 	Get-Job
 
-	Write-Host "Stat Thread Results"
+	Write-Information -InformationAction Continue -MessageData "Statistic: Thread Results"
 	$statThread | Receive-Job
 
-	Write-Host "HTTPd Thread Results"
+	Write-Information -InformationAction Continue -MessageData "HTTPd: Thread Results"
 	$webThread | Receive-Job
 }
