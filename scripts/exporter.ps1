@@ -74,8 +74,8 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 				$s.EntityId,
 				$s.Value,
 				$timestamp)
-            }
-		}
+        }
+
         Write-Debug "Statistic: Before Enqueue"
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
