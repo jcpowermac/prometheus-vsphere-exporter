@@ -75,8 +75,9 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 
         Write-Host "Before Enqueue"
 
-		#$tempQueue = $using:syncQueue
-		$using:syncQueue.Enqueue($outputArray)
+		$tempQueue = $using:syncQueue
+		$tempQueue.Enqueue($outputArray)
+        Write-Host "After Enqueue"
 
 		#Write-Host "Stat Queue Length: $($tempQueue.Count)"
 
@@ -119,12 +120,14 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 				# We can log the request to the terminal
 				Write-Host "$($context.Request.UserHostAddress) => $($context.Request.Url)" -f 'mag'
 
-			    #$tempQueue = $using:syncQueue
+			    $tempQueue = $using:syncQueue
                 #Write-Host "HTTPd Queue Length: $($tempQueue.Count)"
 
 
-				if ($using:syncQueue.Count -gt 0) {
-					$metrics = $using:syncQueue.Dequeue()
+				if ($tempQueue.Count -gt 0) {
+                    Write-Host "Before dequeue"
+					$metrics = $tempQueue.Dequeue()
+                    Write-Host "after dequeue"
 					# Add newlines per string
 					$OFS = "`n"
 					$buffer = [System.Text.Encoding]::UTF8.GetBytes([string]$metrics) # convert htmtl to bytes
