@@ -69,7 +69,7 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 			$timestamp = [int64](New-TimeSpan -Start (Get-Date "01/01/1970") -End ($s.Timestamp)).TotalMilliseconds
 			$metric = $s.MetricId.Replace(".", "_")
 
-			$outputArray += [string]::Format('{0}{{instance="{1}",mobtype="{2}",name="{3}",mobid="{4}"}} {5} {6}',
+			$outputArray += [string]::Format('vsphere_host_{0}{{instance="{1}",mobtype="{2}",name="{3}",mobid="{4}"}} {5} {6}',
 				$metric,
 				$s.Instance,
 				$entityType[$s.EntityId],
