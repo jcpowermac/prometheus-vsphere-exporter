@@ -45,17 +45,18 @@ Write-Information -MessageData "Starting statistics thread" -InformationAction C
 
 $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
     $DebugPreference = $Env:DEBUG_PREFERENCE
+    $VerbosePreference = $Env:DEBUG_PREFERENCE
 	:forever while ($true) {
 
 		$startTime = Get-Date
-		Write-Debug "Start Time: $($startTime)"
+		Write-Verbose "Start Time: $($startTime)"
 
 		$tempRealtimeStatTypes = $using:realtimeStats
 		$tempServer = $using:server
 		$tempClusterHosts = $using:clusterHosts
 		$stats = (Get-VMHost -Server $tempServer -Name $tempClusterHosts | Get-Stat -Server $tempServer -IntervalSecs 20 -MaxSamples 1 -Stat $tempRealtimeStatTypes)
 
-		Write-Debug "Statistic count: $($stats.Count)"
+		Write-Verbose "Statistic count: $($stats.Count)"
 
 		$outputArray = @()
 		$entityType = @{}
@@ -78,20 +79,20 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 				$timestamp)
         }
 
-        Write-Debug "Statistic: Before Enqueue"
+        Write-Verbose "Statistic: Before Enqueue"
 		$tempQueue = $using:syncQueue
 		$tempQueue.Enqueue($outputArray)
-        Write-Debug "Statistic: After Enqueue"
+        Write-Verbose "Statistic: After Enqueue"
 
 		# empty array
 		$outputArray = @()
 
 		$endTime = Get-Date
-		Write-Debug "Statistic: End Time: $($endTime)"
+		Write-Verbose "Statistic: End Time: $($endTime)"
 
 		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
 		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		Write-Debug "Statistic: Calculated Sleep: $($sleepSeconds)"
+		Write-Verbose "Statistic: Calculated Sleep: $($sleepSeconds)"
 
         if ($sleepSeconds -gt 0) {
 		    Start-Sleep -Seconds $sleepSeconds
@@ -122,7 +123,7 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 			$contextTask = $http.GetContextAsync()
             Write-Debug "HTTPd: Before GetAwaiter()"
             $startTime = Get-Date
-            Write-Debug "HTTPd: Waiter Start: $($start)"
+            Write-Debug "HTTPd: Waiter Start: $($startTime)"
 			$context = $contextTask.GetAwaiter().GetResult()
 			if ($context.Request.HttpMethod -eq 'GET' -and $context.Request.RawUrl -eq '/metrics') {
 				Write-Debug "$($context.Request.UserHostAddress) => $($context.Request.Url)"
@@ -146,7 +147,7 @@ $webThread = Start-ThreadJob -Name web -ScriptBlock {
 					Write-Host "HTTPd: No metrics in queue."
 				}
                 $endTime = Get-Date
-                Write-Debug "HTTPd: Waiter End: $($start)"
+                Write-Debug "HTTPd: Waiter End: $($endTime)"
 			}
 		}
 	}
