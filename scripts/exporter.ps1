@@ -1,7 +1,10 @@
 #!/bin/pwsh
 
 $global:DebugPreference = $Env:DEBUG_PREFERENCE
-$Env:TERM = "xterm"
+$global:VerbosePreference = $Env:DEBUG_PREFERENCE
+
+$DebugPreference = $Env:DEBUG_PREFERENCE
+$VerbosePreference = $Env:DEBUG_PREFERENCE
 
 Write-Information -MessageData "Starting prometheus vsphere exporter" -InformationAction Continue
 
@@ -161,8 +164,12 @@ while ($true) {
 	Get-Job
 
 	Write-Information -InformationAction Continue -MessageData "Statistic: Thread Results"
-	$statThread | Receive-Job
+    $statReceive = Receive-Job -Job $statThread
+	#$statOutput = ($statThread | Receive-Job)
+    $statOutput
 
 	Write-Information -InformationAction Continue -MessageData "HTTPd: Thread Results"
-	$webThread | Receive-Job
+	$webOutput = ($webThread | Receive-Job)
+    $webOutput
+
 }
