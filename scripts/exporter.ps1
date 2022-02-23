@@ -72,7 +72,11 @@ $statThread = Start-ThreadJob -Name statistics -ThrottleLimit 10 -ScriptBlock {
 			$timestamp = [int64](New-TimeSpan -Start (Get-Date "01/01/1970") -End ($s.Timestamp)).TotalMilliseconds
 			$metric = $s.MetricId.Replace(".", "_")
 
-			$outputArray += [string]::Format('vsphere_host_{0}{{instance="{1}",mobtype="{2}",name="{3}",mobid="{4}"}} {5} {6}',
+            $metric = "vsphere_host_$($metric)"
+
+            $outputArray += [string]::Format('# HELP {0} {1}', $metric, $s.Description)
+            $outputArray += [string]::Format('# TYPE {0} gauge', $metric)
+			$outputArray += [string]::Format('{0}{{stat_instance="{1}",motype="{2}",name="{3}",moid="{4}"}} {5} {6}',
 				$metric,
 				$s.Instance,
 				$entityType[$s.EntityId],
@@ -164,12 +168,10 @@ while ($true) {
 	Get-Job
 
 	Write-Information -InformationAction Continue -MessageData "Statistic: Thread Results"
-    $statReceive = Receive-Job -Job $statThread
-	#$statOutput = ($statThread | Receive-Job)
+    $statOutput = Receive-Job -Job $statThread
     $statOutput
 
 	Write-Information -InformationAction Continue -MessageData "HTTPd: Thread Results"
-	$webOutput = ($webThread | Receive-Job)
+	$webOutput = Receive-Job -Job $webThread
     $webOutput
-
 }
