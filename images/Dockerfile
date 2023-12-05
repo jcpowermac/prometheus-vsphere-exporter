@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/powershell:fedora-34
+FROM mcr.microsoft.com/powershell:ubi-9
 
 RUN dnf upgrade --refresh -y
 
