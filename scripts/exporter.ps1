@@ -1,5 +1,6 @@
 #!/bin/pwsh
 
+
 $global:DebugPreference = $Env:DEBUG_PREFERENCE
 $global:VerbosePreference = $Env:DEBUG_PREFERENCE
 
@@ -8,7 +9,7 @@ $VerbosePreference = $Env:DEBUG_PREFERENCE
 
 Write-Information -MessageData "Starting prometheus vsphere exporter" -InformationAction Continue
 
-Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false > $null
+Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false  | Out-Null 
 
 Write-Information -MessageData "Connecting to $($Env:VCENTER_URI)" -InformationAction Continue
 $server = Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH)

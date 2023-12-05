@@ -5,7 +5,6 @@ metadata:
     app: prometheus-vsphere-exporter
     k8s-app: prometheus-vsphere-exporter
   name: metrics
-  namespace: openshift-vsphere-infra
 spec:
   ports:
   - name: metrics

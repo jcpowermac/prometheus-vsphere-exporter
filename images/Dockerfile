@@ -1,6 +1,21 @@
-FROM mcr.microsoft.com/powershell:ubi-9
+FROM registry.access.redhat.com/ubi9/ubi
 
-RUN dnf upgrade --refresh -y
+ARG PS_VERSION=7.4.0
+ARG PACKAGE_VERSION=7.4.0
+ARG PS_PACKAGE=powershell-${PACKAGE_VERSION}-1.rh.x86_64.rpm
+ARG PS_PACKAGE_URL=https://github.com/PowerShell/PowerShell/releases/download/v${PS_VERSION}/${PS_PACKAGE}
+
+RUN curl -sSL ${PS_PACKAGE_URL} -o /tmp/linux.rpm
+RUN dnf install -y \
+      less \
+      ncurses \
+      openssh-clients \
+      openssl \
+      glibc-locale-source \
+      glibc-langpack-en \
+      libicu && \
+    dnf upgrade --refresh -y && \
+    dnf localinstall -y /tmp/linux.rpm
 
 ENV TERM=xterm
 ENV HOME=/home/user

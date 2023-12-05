@@ -6,7 +6,7 @@ data:
   VSPHERE_COLLECT_VMS: "True"
   VSPHERE_IGNORE_SSL: "True"
   VCENTER_URI: "vcs8e-vc.ocp2.dev.cluster.com"
-  VCENTER_SECRET_PATH: "/var/run/secret/vcenter/creds.xml"
+  VCENTER_SECRET_PATH: "/var/run/secret/vcenter/ibm.xml"
   VCENTER_CLUSTER: "vcs-ci-workload"
   SCRAPE_DELAY: "30"
   THREAD_STATUS_DELAY: "300"
@@ -17,4 +17,3 @@ metadata:
     app: prometheus-vsphere-exporter
     k8s-app: prometheus-vsphere-exporter
   name: prometheus-vsphere-exporter-config
-  namespace: openshift-vsphere-infra

@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-vsphere-exporter
-  namespace: openshift-vsphere-infra
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
