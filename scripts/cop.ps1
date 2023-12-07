@@ -35,13 +35,13 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 
 				$us = $c.ExtensionData.Summary.UsageSummary
 				if ($us.NumHosts -ge 2) {
-					Write-Debug "Hosts Quantity: $($us.NumHosts)"
+					Write-Verbose "Hosts Quantity: $($us.NumHosts)"
 			
 					$cpuDemand = $us.CpuDemandMhz / $us.TotalCpuCapacityMhz
 					$memoryDemand = $us.MemDemandMB / $us.TotalMemCapacityMB
 
 					if ($cpuDemand -lt 0.8 -and $memoryDemand -lt 0.8) {
-						Write-Debug "CPU and Memory Demand less than 80%"
+						Write-Verbose "CPU and Memory Demand less than 80%"
 						$ready = @()
 						$perfOk = $true
 
@@ -59,12 +59,12 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 
 						# TODO: this value as a configuration item
 						if ($ready.Count -ge 5) {
-							Write-Debug "More than five virtual machines readiness: $($ready.Count)"
+							Write-Verbose "More than five virtual machines readiness: $($ready.Count)"
 							$avgReady = $ready | Measure-Object -Average
 
 							# TODO: this value as a configuration item
 							if ($avgReady -gt 5) {
-								Write-Debug "Average readiness is above 5%: $($avgReady)"
+								Write-Verbose "Average readiness is above 5%: $($avgReady)"
 								$perfOk = $false
 							}
 						}
@@ -103,16 +103,19 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 			}
 		}
 
-		$endTime = Get-Date
+
+		Start-Sleep -Seconds $Env:SCRAPE_DELAY
+
+		#$endTime = Get-Date
 		Write-Verbose "Resources: End Time: $($endTime)"
 
-		$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
-		$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		Write-Verbose "Resources: Calculated Sleep: $($sleepSeconds)"
+		#$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
+		#$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
+		#Write-Verbose "Resources: Calculated Sleep: $($sleepSeconds)"
 
-		if ($sleepSeconds -gt 0) {
-			Start-Sleep -Seconds $sleepSeconds
-		}
+		#if ($sleepSeconds -gt 0) {
+		#	Start-Sleep -Seconds $sleepSeconds
+		#}
 	}
 }
 
