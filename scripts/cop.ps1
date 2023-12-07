@@ -33,11 +33,11 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 			$clusters = Get-Cluster -Server $tempServer -Location $dc
 			foreach ($c in $clusters) {
 
-				Write-Verbose "$(c.Name)"
+				Write-Verbose "$($c.Name)"
 
 				$us = $c.ExtensionData.Summary.UsageSummary
 
-				Write-Verbose $us
+				Write-Verbose ($us | Format-Table | Out-String) 
 				if ($us.NumHosts -ge 2) {
 					Write-Verbose "Hosts Quantity: $($us.NumHosts)"
 			
