@@ -1,0 +1,6 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStreamTag
+lookupPolicy:
+  local: false
+metadata:
+  name: cop:latest

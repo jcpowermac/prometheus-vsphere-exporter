@@ -1,0 +1,27 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: cop
+spec:
+  failedBuildsHistoryLimit: 5
+  nodeSelector: null
+  output:
+    to:
+      kind: ImageStreamTag
+      name: cop:latest
+  postCommit: {}
+  resources: {}
+  runPolicy: Serial
+  source:
+    contextDir: /
+    git:
+      uri: https://github.com/jcpowermac/prometheus-vsphere-exporter
+    type: Git
+  strategy:
+    dockerStrategy:
+      dockerfilePath: images/Dockerfile
+      from:
+        kind: ImageStreamTag
+        name: ubi:latest
+    type: Docker
+  successfulBuildsHistoryLimit: 5
