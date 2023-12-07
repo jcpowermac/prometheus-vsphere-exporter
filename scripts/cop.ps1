@@ -35,11 +35,12 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 
 				Write-Verbose "$($c.Name)"
 
+				$summary = $c.ExtensionData.Summary
 				$us = $c.ExtensionData.Summary.UsageSummary
 
 				Write-Verbose ($us | Format-Table | Out-String) 
-				if ($us.NumHosts -ge 2) {
-					Write-Verbose "Hosts Quantity: $($us.NumHosts)"
+				if ($summary.NumHosts -gt 2) {
+					Write-Verbose "Hosts Quantity: $($summary.NumHosts)"
 			
 					$cpuDemand = $us.CpuDemandMhz / $us.TotalCpuCapacityMhz
 					$memoryDemand = $us.MemDemandMB / $us.TotalMemCapacityMB
