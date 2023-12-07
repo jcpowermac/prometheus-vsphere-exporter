@@ -78,7 +78,9 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 						$key = [string]::Format("{0}-{1}-{2}", $tempServer.Name, $dc.Name, $c.Name) 
 						$tempAvailableResourcesHash = $using:availableResourcesHash
 
+
 						if ($perfOk) {
+							$portGroups = @()
 							$dsName = ""
 							foreach ($dsMoRef in $c.ExtensionData.Datastore) {
 								$ds = Get-View $dsMoRef
@@ -89,11 +91,20 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 								}
 							}
 
+							foreach ($pgMoRef in $c.ExtensionData.Network) {
+								$pg = Get-View $pgMoRef
+
+								if ($pg.Name -contains "ci-vlan-*") {
+									$portGroups.Add($pg.Name)
+								}
+							}
+
 							if (-not $tempAvailableResourcesHash.ContainsKey($key)) {
 								$resources = [PSCustomObject]@{
 									Datacenter = $dc.Name 
 									Cluster    = $c.Name
 									Datastore  = $dsName
+									PortGroups = $portGroups
 								}
 								Write-Verbose "Resource: Before Add"
 								$tempAvailableResourcesHash[$key] = $resources
