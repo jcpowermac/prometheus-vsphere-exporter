@@ -17,8 +17,13 @@ $server = Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $
 $hashTable = New-Object System.Collections.Hashtable
 $availableResourcesHash = [System.Collections.Hashtable]::Synchronized($hashTable)
 
+# TODO: Multiple vCenters
 
 Write-Information -MessageData "Starting statistics thread" -InformationAction Continue
+
+
+# TODO: If multiple clusters are available
+# round-robin
 
 
 $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock {
@@ -45,17 +50,26 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 					$cpuDemand = $us.CpuDemandMhz / $us.TotalCpuCapacityMhz
 					$memoryDemand = $us.MemDemandMB / $us.TotalMemCapacityMB
 
+					$key = [string]::Format("{0}-{1}-{2}", $tempServer.Name, $dc.Name, $c.Name) 
+
+					$perfOk = $false
 					if ($cpuDemand -lt 0.8 -and $memoryDemand -lt 0.8) {
 						Write-Verbose "CPU and Memory Demand less than 80%"
 						$ready = @()
 						$perfOk = $true
 
+
+						# If cluster cpu and memory demand is less than
+						# 80% check if the ci- virtual machines readiness 
 						$virtualMachines = Get-VM -Location $c -Name "ci-*"
 
 						foreach ($v in $virtualMachines) {
 							$readiness = $v.ExtensionData.Summary.QuickStats.OverallCpuReadiness
 
 							# TODO: this value as a configuration item
+
+							# If readiness is greater than 5%
+							# add value to $ready array
 							if ($readiness -ge 5) {
 								$ready.Add($readiness)
 							}
@@ -63,21 +77,22 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 
 
 						# TODO: this value as a configuration item
+
+						# If there are five or more virtual machines with readiness
+						# check the average value of readiness
 						if ($ready.Count -ge 5) {
 							Write-Verbose "More than five virtual machines readiness: $($ready.Count)"
 							$avgReady = $ready | Measure-Object -Average
 
 							# TODO: this value as a configuration item
+
+							# If average readiness is higher than 5% 
+							# Performance is not ok
 							if ($avgReady -gt 5) {
 								Write-Verbose "Average readiness is above 5%: $($avgReady)"
 								$perfOk = $false
 							}
 						}
-
-
-						$key = [string]::Format("{0}-{1}-{2}", $tempServer.Name, $dc.Name, $c.Name) 
-						$tempAvailableResourcesHash = $using:availableResourcesHash
-
 
 						if ($perfOk) {
 							$portGroups = @()
@@ -104,16 +119,23 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 									Datacenter = $dc.Name 
 									Cluster    = $c.Name
 									Datastore  = $dsName
+
+									# Should this be a queue?
 									PortGroups = $portGroups
 								}
 								Write-Verbose "Resource: Before Add"
+								$tempAvailableResourcesHash = $using:availableResourcesHash
 								$tempAvailableResourcesHash[$key] = $resources
 								Write-Verbose "Resource: After Add"
 							}
 						}
 						else {
+							$tempAvailableResourcesHash = $using:availableResourcesHash
 							$tempAvailableResourcesHash.Remove($key)
 						}
+					} else {
+						$tempAvailableResourcesHash = $using:availableResourcesHash
+						$tempAvailableResourcesHash.Remove($key)
 					}
 				}
 			}
@@ -122,16 +144,8 @@ $resourceThread = Start-ThreadJob -name resource -ThrottleLimit 10 -ScriptBlock 
 
 		Start-Sleep -Seconds $Env:SCRAPE_DELAY
 
-		#$endTime = Get-Date
+		$endTime = Get-Date
 		Write-Verbose "Resources: End Time: $($endTime)"
-
-		#$processSeconds = [int64](New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
-		#$sleepSeconds = $Env:SCRAPE_DELAY - $processSeconds
-		#Write-Verbose "Resources: Calculated Sleep: $($sleepSeconds)"
-
-		#if ($sleepSeconds -gt 0) {
-		#	Start-Sleep -Seconds $sleepSeconds
-		#}
 	}
 }
 
